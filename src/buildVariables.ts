@@ -51,7 +51,8 @@ const buildGetListVariables = (introspectionResults: IntrospectionResult) => (
       if (!!inputField) {
         return {
           ...acc,
-          [key]: { id_in: params.filter[key] }
+          [key]: { ...params.filter[key] }
+          //[key]: { id_in: params.filter[key] }
         };
       }
     }
@@ -150,12 +151,12 @@ const buildReferenceField = ({
   field,
   mutationType
 }: {
-  inputArg: { [key: string]: any };
-  introspectionResults: IntrospectionResult;
-  typeName: string;
-  field: string;
-  mutationType: string;
-}) => {
+    inputArg: { [key: string]: any };
+    introspectionResults: IntrospectionResult;
+    typeName: string;
+    field: string;
+    mutationType: string;
+  }) => {
   const inputType = findInputFieldForType(
     introspectionResults,
     typeName,
@@ -325,8 +326,19 @@ const buildCreateVariables = (introspectionResults: IntrospectionResult) => (
         });
 
         // If no fields in the object are valid, continue
+        // quick fix for mutation with nested create.
+        // this fix is assume referece field includes the key of 'create'.
+        // e.g., 
+        // { key: { create: { ... } } }
         if (Object.keys(fieldsToConnect).length === 0) {
-          return acc;
+          // return acc;
+          return {
+            ...acc,
+            data: {
+              ...acc.data,
+              [key]: { ...params.data[key] }
+            }
+          }
         }
 
         // Else, connect the nodes
@@ -375,6 +387,7 @@ export default (introspectionResults: IntrospectionResult) => (
   aorFetchType: string,
   params: any
 ) => {
+  console.log(aorFetchType)
   switch (aorFetchType) {
     case GET_LIST: {
       return buildGetListVariables(introspectionResults)(
@@ -383,10 +396,15 @@ export default (introspectionResults: IntrospectionResult) => (
         params
       );
     }
-    case GET_MANY:
-      return {
-        where: { id_in: params.ids }
-      };
+    case GET_MANY: {
+      console.log(params.ids)
+      const reducer = (acc: string[], val: { [key: string]: string }) => acc.concat([val.id])
+
+      const ff = params.ids.reduce(reducer, [])
+      console.log(ff)
+      return { where: { id_in: ff } }
+      // return { where: { id_in: params.ids } }
+    }
     case GET_MANY_REFERENCE: {
       const parts = params.target.split('.');
 
